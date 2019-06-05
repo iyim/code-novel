@@ -44,7 +44,9 @@ function activate(context) {
       // 显示在第二个编辑器
       viewColumn: vscode.ViewColumn.One
     };
-    vscode.window.showTextDocument(vscode.Uri.file(novelPath), options);
+    vscode.window.showTextDocument(vscode.Uri.file(novelPath), options).then(editor => {
+      console.log(editor)
+    })
   });
   // 下一页
   let next = vscode.commands.registerCommand('extension.nextpage', () => {
@@ -53,6 +55,16 @@ function activate(context) {
   // 上一页
   let prev = vscode.commands.registerCommand('extension.prevpage', () => {
     prePage()
+  })
+  // 跳页
+  let jump = vscode.commands.registerCommand('extension.jumppage', () => {
+    vscode.window.showInputBox({
+      placeHolder: "请输入页码"
+    }).then(value => {
+      if(value){
+        jumpPage(value)
+      }
+    })
   })
   let clickBar = vscode.commands.registerCommand('extension.clickStatusBar', () => {
     vscode.window.showQuickPick(Object.keys(env['books'])).then((value) => {
@@ -65,6 +77,7 @@ function activate(context) {
   context.subscriptions.push(open);
   context.subscriptions.push(next);
   context.subscriptions.push(prev);
+  context.subscriptions.push(jump);
   context.subscriptions.push(clickBar);
 }
 
@@ -90,9 +103,9 @@ function initPathAndEnv() {
   books.forEach(book => {
     if (!env['books']) {
       env['books'] = {}
-    }else{
+    } else {
       Object.keys(env['books']).forEach(k => {
-        if (!books.find(b => b === k)){
+        if (!books.find(b => b === k)) {
           delete env['books'][k]
         }
       })
@@ -102,8 +115,7 @@ function initPathAndEnv() {
     }
   })
   if (books.length === 0) {
-    vscode.window.showErrorMessage(`没有txt格式的书籍,请在路径${path.join(__dirname, 'books')}下放置书籍!`)
-    return
+    throw new Error(`没有txt格式的书籍,请在路径${path.join(__dirname, 'books')}下放置书籍!`)
   }
   if (!env['currentBook'] || !books.find(b => b === env['currentBook'])) {
     env['currentBook'] = books[0]
@@ -111,21 +123,40 @@ function initPathAndEnv() {
 
 }
 
+// 初始化小说内容
 function initNovelInfo() {
   var content = fs.readFileSync(path.join(__dirname, 'books', env['currentBook']))
   novelLines = content.toString().split("\n")
   totalPage = Math.ceil(novelLines.length / 100)
 }
-
+// 初始化状态栏
 function initStatusBar() {
   const message = `${env['currentBook']}   ${env['books'][env['currentBook']]} | ${totalPage}`
+  // 进度bar
   const barItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right);
   barItem.text = message;
   barItem.command = 'extension.clickStatusBar'
   barItem.show();
   statusBar = barItem
-}
 
+  // 上一页的bar
+  const preBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+  preBar.text = "上一页";
+  preBar.command = 'extension.prevpage'
+  preBar.show();
+
+  // 下一页的bar
+  const nextBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+  nextBar.text = "下一页";
+  nextBar.command = 'extension.nextpage'
+  nextBar.show();
+
+  const jumpBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+  jumpBar.text = "跳页";
+  jumpBar.command = 'extension.jumppage'
+  jumpBar.show();
+}
+// 获取当前页数据
 function getPage() {
   const lines = novelLines.slice((env['books'][env['currentBook']] - 1) * 100, (env['books'][env['currentBook']] * 100))
   var template = tpl.format(...lines)
@@ -136,31 +167,71 @@ function getPage() {
   scrollToTop()
   updateEnv()
 }
-
+// 更新用户进度
 function updateEnv() {
   const envPath = path.join(__dirname, "env.json")
   fs.writeFileSync(envPath, JSON.stringify(env))
 }
-
+// 下一页
 function nextPage() {
+  let editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    return
+  }
+  const fspath = editor.document.uri.fsPath
+  if (fspath && fspath !== path.join(__dirname, 'novel.js')) {
+    return
+  }
   if (env['books'][env['currentBook']] < totalPage) {
     env['books'][env['currentBook']]++;
   }
   getPage()
 }
+// 上一页
 function prePage() {
+  let editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    return
+  }
+  const fspath = editor.document.uri.fsPath
+  if (fspath && fspath !== path.join(__dirname, 'novel.js')) {
+    return
+  }
   if (env['books'][env['currentBook']] > 1) {
     env['books'][env['currentBook']]--;
   }
   getPage()
 }
-
+// 跳頁
+function jumpPage(page) {
+  let editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    return
+  }
+  const fspath = editor.document.uri.fsPath
+  if (fspath && fspath !== path.join(__dirname, 'novel.js')) {
+    return
+  }
+  console.log(isNumber(page))
+  if (isNumber(page)){
+    if (page<1 || page > totalPage){
+      vscode.window.showWarningMessage(`页码范围1-${totalPage}`)
+      return
+    }else{
+      env['books'][env['currentBook']] = page
+      getPage()
+    }
+  }else{
+    vscode.window.showWarningMessage(`请输入数字`)
+  }
+}
+// 切换书
 function changeBook(book) {
   env['currentBook'] = book
   initNovelInfo()
   getPage()
 }
-
+// 切换页后将光标定位到第一行
 function scrollToTop() {
   let editor = vscode.window.activeTextEditor;
   if (editor) {
@@ -170,7 +241,14 @@ function scrollToTop() {
   }
 }
 
-// this method is called when your extension is deactivated
+function isNumber(nubmer) {
+  var re = /^[0-9]+.?[0-9]*$/; //判断字符串是否为数字 //判断正整数 /^[1-9]+[0-9]*]*$/ 
+  if (!re.test(nubmer)) {
+    return false;
+  }
+  return true
+}
+
 function deactivate() { }
 
 exports.deactivate = deactivate;
