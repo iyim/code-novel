@@ -35,7 +35,7 @@ String.prototype.format = function () {
  */
 function activate(context) {
   init()
-  let open = vscode.commands.registerCommand('extension.helloWorld', () => {
+  let open = vscode.commands.registerCommand('extension.openNovel', () => {
     const options = {
       // 选中第3行第9列到第3行第17列
       //selection: new vscode.Range(new vscode.Position(2, 8), new vscode.Position(2, 16));

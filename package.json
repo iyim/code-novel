@@ -24,9 +24,9 @@
 	"contributes": {
     "keybindings":[
       {
-        "command": "extension.helloWorld",
+        "command": "extension.openNovel",
         "key": "ctrl+alt+,",
-				"mac": "cmd+alt+,"
+        "mac": "cmd+alt+,"
       }
     ]
 	},
