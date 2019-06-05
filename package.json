@@ -2,7 +2,7 @@
 	"name": "code-novel",
 	"displayName": "Code Novel",
 	"description": "代码注释小说",
-	"version": "0.0.1",
+	"version": "0.0.2",
   "publisher": "mathon",
   "icon": "finish.png",
 	"engines": {
