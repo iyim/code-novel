@@ -2,7 +2,7 @@
 
 将书隐藏在代码注释中，更加真实的摸鱼神器。
 
-![]()
+![](https://raw.githubusercontent.com/iyim/code-novel/master/tip.png)
 
 # 安装
 
