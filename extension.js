@@ -11,7 +11,10 @@ let novelLines = []
 // 总共的页码
 let totalPage = 0
 // 状态栏
-let statusBar = null
+let processBar = null
+let nextBar = null
+let prevBar = null
+let jumpBar = null
 
 let env = null
 
@@ -61,7 +64,7 @@ function activate(context) {
     vscode.window.showInputBox({
       placeHolder: "请输入页码"
     }).then(value => {
-      if(value){
+      if (value) {
         jumpPage(value)
       }
     })
@@ -73,6 +76,28 @@ function activate(context) {
         changeBook(value)
       }
     })
+  })
+  vscode.window.onDidChangeActiveTextEditor(editor => {
+    console.log(editor)
+    if (editor) {
+      const fspath = editor.document.uri.fsPath
+      if (fspath && fspath.toLowerCase() === path.join(__dirname, 'novel.js').toLowerCase()) {
+        processBar.show()
+        nextBar.show()
+        prevBar.show()
+        jumpBar.show()
+      } else {
+        processBar.hide()
+        nextBar.hide()
+        prevBar.hide()
+        jumpBar.hide()
+      }
+    }else {
+      processBar.hide()
+      nextBar.hide()
+      prevBar.hide()
+      jumpBar.hide()
+    }
   })
   context.subscriptions.push(open);
   context.subscriptions.push(next);
@@ -86,9 +111,20 @@ function init() {
   initNovelInfo()
   initStatusBar()
   getPage()
+  let editor = vscode.window.activeTextEditor;
+  if (editor) {
+    const fspath = editor.document.uri.fsPath
+    if (fspath && fspath.toLowerCase() === path.join(__dirname, 'novel.js').toLowerCase()) {
+      processBar.show()
+      nextBar.show()
+      prevBar.show()
+      jumpBar.show()
+    }
+  }
 }
 
 function initPathAndEnv() {
+  console.log("初始化环境")
   // 展示的novel路径
   novelPath = path.join(__dirname, 'novel.js')
   // 配置路径，记录了当前读的进度
@@ -133,36 +169,31 @@ function initNovelInfo() {
 function initStatusBar() {
   const message = `${env['currentBook']}   ${env['books'][env['currentBook']]} | ${totalPage}`
   // 进度bar
-  const barItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right);
-  barItem.text = message;
-  barItem.command = 'extension.clickStatusBar'
-  barItem.show();
-  statusBar = barItem
+  processBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right);
+  processBar.text = message;
+  processBar.command = 'extension.clickStatusBar'
 
   // 上一页的bar
-  const preBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-  preBar.text = "上一页";
-  preBar.command = 'extension.prevpage'
-  preBar.show();
+  prevBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+  prevBar.text = "上一页";
+  prevBar.command = 'extension.prevpage'
 
   // 下一页的bar
-  const nextBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+  nextBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
   nextBar.text = "下一页";
   nextBar.command = 'extension.nextpage'
-  nextBar.show();
 
-  const jumpBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+  jumpBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
   jumpBar.text = "跳页";
   jumpBar.command = 'extension.jumppage'
-  jumpBar.show();
 }
 // 获取当前页数据
 function getPage() {
   const lines = novelLines.slice((env['books'][env['currentBook']] - 1) * 100, (env['books'][env['currentBook']] * 100))
   var template = tpl.format(...lines)
   fs.writeFileSync(novelPath, template)
-  if (statusBar) {
-    statusBar.text = `${env['currentBook']}   ${env['books'][env['currentBook']]} | ${totalPage}`
+  if (processBar) {
+    processBar.text = `${env['currentBook']}   ${env['books'][env['currentBook']]} | ${totalPage}`
   }
   scrollToTop()
   updateEnv()
@@ -179,7 +210,7 @@ function nextPage() {
     return
   }
   const fspath = editor.document.uri.fsPath
-  if (fspath && fspath !== path.join(__dirname, 'novel.js')) {
+  if (fspath && fspath.toLowerCase() !== path.join(__dirname, 'novel.js').toLowerCase()) {
     return
   }
   if (env['books'][env['currentBook']] < totalPage) {
@@ -194,7 +225,7 @@ function prePage() {
     return
   }
   const fspath = editor.document.uri.fsPath
-  if (fspath && fspath !== path.join(__dirname, 'novel.js')) {
+  if (fspath && fspath.toLowerCase() !== path.join(__dirname, 'novel.js').toLowerCase()) {
     return
   }
   if (env['books'][env['currentBook']] > 1) {
@@ -209,19 +240,18 @@ function jumpPage(page) {
     return
   }
   const fspath = editor.document.uri.fsPath
-  if (fspath && fspath !== path.join(__dirname, 'novel.js')) {
+  if (fspath && fspath.toLowerCase() !== path.join(__dirname, 'novel.js').toLowerCase()) {
     return
   }
-  console.log(isNumber(page))
-  if (isNumber(page)){
-    if (page<1 || page > totalPage){
+  if (isNumber(page)) {
+    if (page < 1 || page > totalPage) {
       vscode.window.showWarningMessage(`页码范围1-${totalPage}`)
       return
-    }else{
+    } else {
       env['books'][env['currentBook']] = page
       getPage()
     }
-  }else{
+  } else {
     vscode.window.showWarningMessage(`请输入数字`)
   }
 }
